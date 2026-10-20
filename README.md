@@ -278,10 +278,12 @@ tag: 1.2.3
 ```
 
 The value is a plain, single-quoted or double-quoted scalar on one
-line, taken as written, so `1.10` stays `1.10`. Nesting, continuation
-lines, flow collections, block scalars, anchors, YAML tags, escapes,
-`null`, a repeated `tag` key or a second document all fail. The file,
-symbolic links resolved, must lie inside the workspace.
+line, taken as written, so `1.10` stays `1.10`. Other keys follow the
+same rule, though their values may also be empty or `null`. Nesting,
+continuation lines, flow collections, block scalars, anchors, YAML
+tags or escapes on any key, a `null` tag, a repeated `tag` key or a
+second document all fail. The file, symbolic links resolved, must lie
+inside the workspace.
 
 ### Discovery
 

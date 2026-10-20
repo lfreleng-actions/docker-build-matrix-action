@@ -86,6 +86,37 @@ class TagFilesTest(TreeTestCase):
         self.assertEqual(run.status, 0, run.stdout)
         self.assertEqual(matrix(run)[0]["tag"], "2.8.6")
 
+    def test_simple_values_on_ignored_keys_pass(self) -> None:
+        content = (
+            "# comment\nowner:\nname: ~\nlabel: null\nkind: 'a b'\n"
+            'note: "c d" # why\nversion: 1.0\ntag: v1\n'
+        )
+        self.tree({"a/Dockerfile": D, "a/container-tag.yaml": content})
+        run = run_action(self.workspace, tag_files="true")
+        self.assertEqual(run.status, 0, run.stdout)
+        self.assertEqual(matrix(run)[0]["tag"], "v1")
+
+    def test_multi_line_values_on_ignored_keys_fail(self) -> None:
+        cases = {
+            "unterminated flow sequence": "owner: [\ntag: v1\n",
+            "multi-line quote in flow": 'metadata: ["\ntag: v1\nclosing: ["]\n',
+            "flow mapping": "owner: {a: b,\ntag: v1}\n",
+            "literal block scalar": "owner: |\ntag: v1\n",
+            "folded block scalar": "owner: >-\ntag: v1\n",
+            "anchor": "owner: &x\ntag: v1\n",
+            "alias": "owner: *x\ntag: v1\n",
+            "yaml tag": "owner: !!str\ntag: v1\n",
+            "escaped quote": 'owner: "a\\"\ntag: v1\n',
+        }
+        for label, content in cases.items():
+            with self.subTest(label):
+                self.tearDown()
+                self.setUp()
+                self.tree({"a/Dockerfile": D, "a/container-tag.yaml": content})
+                run = run_action(self.workspace, tag_files="true")
+                key = content.split(":", 1)[0]
+                self.assert_fails_naming(run, "a/container-tag.yaml line 1", f"'{key}'")
+
     def test_explicit_tag_file(self) -> None:
         self.tree(
             {

@@ -10,11 +10,13 @@ is parsed strictly rather than passed through.
 
 The action carries no YAML library, so this reads a deliberate subset
 of YAML: an optional leading ``---``, comments, blank lines, and
-top-level ``key: value`` lines, one of them ``tag``. Its value is a
-plain, single-quoted or double-quoted scalar on one line. Anything
-else that could change what ``.tag`` means to a YAML parser (nesting,
-continuation lines, flow collections, block scalars, anchors, tags,
-escapes, further documents) fails, naming the file.
+top-level ``key: value`` lines, one of them ``tag``. Every value is a
+plain, single-quoted or double-quoted scalar on one line: ``tag`` must
+hold a string, and the other keys, which are ignored, may also be
+empty or null. Anything else that could change what ``.tag`` means to
+a YAML parser (nesting, continuation lines, flow collections, block
+scalars, anchors, tags, escapes, further documents), on any key,
+fails, naming the file.
 """
 
 from __future__ import annotations
@@ -39,17 +41,22 @@ _NULLS = frozenset({"null", "Null", "NULL", "~", ""})
 _INDICATORS = frozenset("-?:,[]{}#&*!|>%@`")
 
 
-def _line_value(raw: str) -> str | None:
-    """The scalar a value holds, or None when it is not a simple one."""
+def _line_value(raw: str) -> tuple[bool, str | None]:
+    """Whether a value is a simple one-line scalar, and the string it holds.
+
+    The string is None for a null or empty value.
+    """
+    if not raw:
+        return True, None
     if raw[:1] in _INDICATORS and not (raw[:1] == "-" and raw[1:2] not in " \t"):
-        return None
+        return False, None
     match = _SCALAR.fullmatch(raw.rstrip(" \t"))
     if not match:
-        return None
+        return False, None
     single, double, plain = match.groups()
     if plain is not None:
-        return None if plain in _NULLS else plain
-    return single if single is not None else double
+        return True, None if plain in _NULLS else plain
+    return True, single if single is not None else double
 
 
 def parse(text: str, label: str) -> str:
@@ -73,15 +80,17 @@ def parse(text: str, label: str) -> str:
                 f"{where}: unsupported YAML; expected a top-level 'key: value' line"
             )
         key, raw = match.groups()
+        simple, value = _line_value(raw or "")
         if key != "tag":
-            # A quoted value left open would run on into the next line,
-            # which could then be the tag.
-            if raw and raw[0] in "'\"" and not _SCALAR.fullmatch(raw.rstrip(" \t")):
-                raise ActionError(f"{where}: unsupported quoted value for '{key}'")
+            # A value that is not a one-line scalar could run on into
+            # the next line, which could then be read as the tag.
+            if not simple:
+                raise ActionError(
+                    f"{where}: '{key}' must be a scalar on one line, if set"
+                )
             continue
         if tag is not None:
             raise ActionError(f"{where}: duplicate 'tag' key")
-        value = _line_value(raw or "")
         if value is None:
             raise ActionError(
                 f"{where}: 'tag' must be a single string scalar on one line"
