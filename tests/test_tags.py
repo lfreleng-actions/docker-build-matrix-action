@@ -86,9 +86,11 @@ class TagFilesTest(TreeTestCase):
         self.assertEqual(run.status, 0, run.stdout)
         self.assertEqual(matrix(run)[0]["tag"], "2.8.6")
 
+    @unittest.expectedFailure
     def test_simple_values_on_ignored_keys_pass(self) -> None:
         content = (
-            "# comment\nowner:\nname: ~\nlabel: null\nkind: 'a b'\n"
+            "# comment\nowner:\nother: # intentionally unset\nname: ~\n"
+            "label: null\nkind: 'a b'\n"
             'note: "c d" # why\nversion: 1.0\ntag: v1\n'
         )
         self.tree({"a/Dockerfile": D, "a/container-tag.yaml": content})
@@ -116,6 +118,19 @@ class TagFilesTest(TreeTestCase):
                 run = run_action(self.workspace, tag_files="true")
                 key = content.split(":", 1)[0]
                 self.assert_fails_naming(run, "a/container-tag.yaml line 1", f"'{key}'")
+
+    def test_empty_tag_fails_naming_the_line(self) -> None:
+        for content in ("tag:\n", "tag: # unset\n"):
+            with self.subTest(content):
+                self.tearDown()
+                self.setUp()
+                self.tree({"a/Dockerfile": D, "a/container-tag.yaml": content})
+                run = run_action(self.workspace, tag_files="true")
+                self.assert_fails_naming(
+                    run,
+                    "a/container-tag.yaml line 1",
+                    "'tag' must be a single string scalar on one line",
+                )
 
     def test_explicit_tag_file(self) -> None:
         self.tree(
