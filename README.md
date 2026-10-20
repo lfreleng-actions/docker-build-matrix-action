@@ -185,6 +185,7 @@ one for one, and the outputs keep the job output names:
 | `select_dependencies`  | False    | `true`                  | With `select`, add the same-repository images the selection builds from                                                       |
 | `allow_empty`          | False    | `false`                 | Succeed with no images instead of failing                                                                                     |
 | `summary`              | False    | `true`                  | Write the image table to the step summary                                                                                     |
+| `tag_files`            | False    | `false`                 | Read each image's tag from its `container-tag.yaml`; see [per-image tags](#per-image-tags)                                    |
 
 <!-- markdownlint-enable MD013 -->
 
@@ -220,6 +221,7 @@ The `images` input and the `images_json` output share one schema:
 | `target`     | string                      | No       | Build stage to stop at                                                                                               |
 | `build_args` | array of strings            | No       | `KEY=VALUE` build arguments                                                                                          |
 | `platforms`  | string, or array of strings | No       | Platforms for this image; the matrix joins an array with commas, and falls back to the `platforms` input when absent |
+| `tag_file`   | string                      | No       | With `tag_files`, the tag file relative to `path_prefix`; default `<context>/container-tag.yaml`                     |
 
 <!-- markdownlint-enable MD013 -->
 
@@ -247,8 +249,39 @@ Each matrix entry carries the image entry's keys, normalised, plus:
 | `depends_on`      | Same-repository images this one builds from, when the action read them             |
 | `level`           | Index of this image's stage in `build_levels`                                      |
 | `index`           | Position in build order                                                            |
+| `tag`             | With `tag_files`, the image's tag; empty when it has no tag file                   |
+| `tag_source`      | With `tag_files`, the tag file read, relative to `path_prefix`; else empty         |
 
 <!-- markdownlint-enable MD013 -->
+
+### Per-image tags
+
+`tag_files: true` reproduces global-jjb's `yaml-file` container tag
+method, where each image takes its tag from the `tag` key of its own
+`container-tag.yaml`. The action reads the file an entry's `tag_file`
+names, which covers global-jjb's `container-tag-yaml-dir`, or else
+`<context>/container-tag.yaml`. A declared `tag_file` must exist; the
+default file is optional. Every entry in `images_json` and the matrix
+then carries `tag` and `tag_source`, both empty for an image with no
+file. These replace any `tag` or `tag_source` key an explicit entry
+sets. The action reads the files of the selected images alone.
+
+The tag reaches `docker tag`, so the file must hold one valid Docker
+tag, `[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}`, or the run fails naming the
+file. The action carries no YAML library and reads a strict subset of
+YAML:
+
+```yaml
+---
+# Comments, blank lines and other top-level 'key: value' lines are fine
+tag: 1.2.3
+```
+
+The value is a plain, single-quoted or double-quoted scalar on one
+line, taken as written, so `1.10` stays `1.10`. Nesting, continuation
+lines, flow collections, block scalars, anchors, YAML tags, escapes,
+`null`, a repeated `tag` key or a second document all fail. The file,
+symbolic links resolved, must lie inside the workspace.
 
 ### Discovery
 

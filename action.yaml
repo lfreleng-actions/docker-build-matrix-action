@@ -37,7 +37,8 @@ inputs:
       strings), 'dockerfile' (default <context>/Dockerfile) and
       'target' (optional strings), 'build_args' (an optional list of
       KEY=VALUE strings) and 'platforms' (an optional string or list
-      of strings, which the matrix joins with commas). Array order is
+      of strings, which the matrix joins with commas) and 'tag_file'
+      (an optional string, read under tag_files). Array order is
       build order. Other keys pass through to the matrix output
       unchanged.
     required: false
@@ -160,6 +161,16 @@ inputs:
     description: "Write the image table to the job step summary"
     required: false
     default: "true"
+  tag_files:
+    description: >
+      Read each image's tag from the 'tag' key of a container-tag.yaml
+      file, as global-jjb's yaml-file tag method does: the file named
+      by the entry's 'tag_file' key, else <context>/container-tag.yaml
+      when present. Adds 'tag' and 'tag_source' to every entry in
+      images_json and matrix, empty when no file applies. A value that
+      is not a valid Docker tag fails, naming the file.
+    required: false
+    default: "false"
 
 outputs:
   images_json:
@@ -219,6 +230,7 @@ runs:
         INPUT_SELECT_DEPENDENCIES: ${{ inputs.select_dependencies }}
         INPUT_ALLOW_EMPTY: ${{ inputs.allow_empty }}
         INPUT_SUMMARY: ${{ inputs.summary }}
+        INPUT_TAG_FILES: ${{ inputs.tag_files }}
       run: |
         # Discover images
         # Standard library only, so no setup-python step or package
