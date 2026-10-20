@@ -96,7 +96,6 @@ class TagFilesTest(TreeTestCase):
         self.assertEqual(run.status, 0, run.stdout)
         self.assertEqual(matrix(run)[0]["tag"], "v1")
 
-    @unittest.expectedFailure
     def test_multi_line_values_on_ignored_keys_fail(self) -> None:
         cases = {
             "unterminated flow sequence": "owner: [\ntag: v1\n",
