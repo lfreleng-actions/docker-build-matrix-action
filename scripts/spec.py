@@ -154,6 +154,19 @@ def dockerfile_of(image: Image) -> str:
     return str(dockerfile)
 
 
+def invalid_tag_files(images: list[Image]) -> list[str]:
+    """Names whose ``tag_file`` is set to something other than a string."""
+    return [
+        image["name"] for image in images if not _optional_string(image, "tag_file")
+    ]
+
+
+def tag_file_of(image: Image) -> str:
+    """The entry's declared tag file relative to the project root, or ''."""
+    tag_file = image.get("tag_file")
+    return "" if _absent(tag_file) else str(tag_file)
+
+
 def build_args_of(image: Image) -> list[str]:
     """The entry's build arguments, as a list."""
     build_args = image.get("build_args")

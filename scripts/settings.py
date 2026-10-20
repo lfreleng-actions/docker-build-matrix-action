@@ -63,6 +63,7 @@ class Settings:
     select_dependencies: bool = True
     allow_empty: bool = False
     summary: bool = True
+    tag_files: bool = False
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -98,6 +99,7 @@ class Settings:
             ),
             allow_empty=gha.env_bool("INPUT_ALLOW_EMPTY", "allow_empty", False),
             summary=gha.env_bool("INPUT_SUMMARY", "summary", True),
+            tag_files=gha.env_bool("INPUT_TAG_FILES", "tag_files", False),
         )
 
     @property
@@ -156,6 +158,7 @@ class Settings:
                 defaults.select_dependencies,
             ),
             ("build_platform", self.build_platform, ""),
+            ("tag_files", self.tag_files, defaults.tag_files),
         ]
         fields.extend(
             f"{key}={value}" for key, value, default in tunables if value != default

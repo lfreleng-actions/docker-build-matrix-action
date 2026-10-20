@@ -40,7 +40,6 @@ class TagFilesTest(TreeTestCase):
         for fragment in fragments:
             self.assertIn(fragment, errors[0])
 
-    @unittest.expectedFailure
     def test_present_and_absent(self) -> None:
         self.tree(
             {
@@ -61,7 +60,6 @@ class TagFilesTest(TreeTestCase):
             [("1.2.3", "a/container-tag.yaml"), ("", "")],
         )
 
-    @unittest.expectedFailure
     def test_scalar_styles(self) -> None:
         self.tree(
             {
@@ -77,7 +75,6 @@ class TagFilesTest(TreeTestCase):
         self.assertEqual(run.status, 0, run.stdout)
         self.assertEqual([e["tag"] for e in matrix(run)], ["1.0", "v2_rc-1", "1.10"])
 
-    @unittest.expectedFailure
     def test_other_top_level_keys_are_ignored(self) -> None:
         self.tree(
             {
@@ -89,7 +86,6 @@ class TagFilesTest(TreeTestCase):
         self.assertEqual(run.status, 0, run.stdout)
         self.assertEqual(matrix(run)[0]["tag"], "2.8.6")
 
-    @unittest.expectedFailure
     def test_explicit_tag_file(self) -> None:
         self.tree(
             {
@@ -113,21 +109,18 @@ class TagFilesTest(TreeTestCase):
         self.assertEqual((first["tag"], first["tag_source"]), ("4.0.0", "tags/a.yaml"))
         self.assertEqual((second["tag"], second["tag_source"]), ("", ""))
 
-    @unittest.expectedFailure
     def test_missing_explicit_tag_file_fails(self) -> None:
         self.tree({"a/Dockerfile": D})
         listed = json.dumps([{"name": "a", "context": "a", "tag_file": "none.yaml"}])
         run = run_action(self.workspace, images=listed, tag_files="true")
         self.assert_fails_naming(run, "none.yaml", "not found")
 
-    @unittest.expectedFailure
     def test_tag_file_must_be_a_string(self) -> None:
         self.tree({"a/Dockerfile": D})
         listed = json.dumps([{"name": "a", "context": "a", "tag_file": 1}])
         run = run_action(self.workspace, images=listed, tag_files="true")
         self.assert_fails_naming(run, "tag_file", "a")
 
-    @unittest.expectedFailure
     def test_malformed_content_fails_naming_the_file(self) -> None:
         cases = {
             "empty": "",
@@ -158,7 +151,6 @@ class TagFilesTest(TreeTestCase):
                 run = run_action(self.workspace, tag_files="true")
                 self.assert_fails_naming(run, "a/container-tag.yaml")
 
-    @unittest.expectedFailure
     def test_invalid_tag_characters_fail(self) -> None:
         for value in ("-lead", ".lead", "a b", "a/b", "a:b", "x" * 129, "ü1", "$(id)"):
             with self.subTest(value):
@@ -173,7 +165,6 @@ class TagFilesTest(TreeTestCase):
                 run = run_action(self.workspace, tag_files="true")
                 self.assert_fails_naming(run, "a/container-tag.yaml", "Docker tag")
 
-    @unittest.expectedFailure
     def test_longest_valid_tag(self) -> None:
         value = "_" + "a" * 127
         self.tree({"a/Dockerfile": D, "a/container-tag.yaml": f"tag: {value}\n"})
@@ -181,7 +172,6 @@ class TagFilesTest(TreeTestCase):
         self.assertEqual(run.status, 0, run.stdout)
         self.assertEqual(matrix(run)[0]["tag"], value)
 
-    @unittest.expectedFailure
     def test_symlink_inside_the_workspace_resolves(self) -> None:
         self.tree({"a/Dockerfile": D, "shared/tag.yaml": "tag: 5.0\n"})
         os.symlink("../shared/tag.yaml", self.workspace / "a" / "container-tag.yaml")
@@ -189,7 +179,6 @@ class TagFilesTest(TreeTestCase):
         self.assertEqual(run.status, 0, run.stdout)
         self.assertEqual(matrix(run)[0]["tag"], "5.0")
 
-    @unittest.expectedFailure
     def test_symlink_out_of_the_workspace_fails(self) -> None:
         self.tree({"ws/a/Dockerfile": D, "outside.yaml": "tag: 1.0\n"})
         os.symlink(
@@ -198,7 +187,6 @@ class TagFilesTest(TreeTestCase):
         run = run_action(self.workspace / "ws", tag_files="true")
         self.assert_fails_naming(run, "a/container-tag.yaml", "inside the workspace")
 
-    @unittest.expectedFailure
     def test_explicit_tag_file_out_of_the_workspace_fails(self) -> None:
         self.tree({"a/Dockerfile": D})
         for path in ("../tag.yaml", "/etc/hostname"):
@@ -207,13 +195,11 @@ class TagFilesTest(TreeTestCase):
                 run = run_action(self.workspace, images=listed, tag_files="true")
                 self.assert_fails_naming(run, path, "inside the workspace")
 
-    @unittest.expectedFailure
     def test_directory_in_place_of_the_file_fails(self) -> None:
         self.tree({"a/Dockerfile": D, "a/container-tag.yaml/x": ""})
         run = run_action(self.workspace, tag_files="true")
         self.assert_fails_naming(run, "a/container-tag.yaml", "not a regular file")
 
-    @unittest.expectedFailure
     def test_only_selected_images_are_read(self) -> None:
         self.tree(
             {
@@ -242,7 +228,6 @@ class TagFilesTest(TreeTestCase):
                 self.assertNotIn("tag", matrix(run)[0])
                 self.assertNotIn("tag_source", images(run)[0])
 
-    @unittest.expectedFailure
     def test_tag_files_changes_the_build_id_stem(self) -> None:
         self.tree({"a/Dockerfile": D})
         plain = run_action(self.workspace).outputs["build_id"].split("-")[0]

@@ -19,7 +19,7 @@ import re
 import sys
 import traceback
 
-from scripts import gha, render
+from scripts import gha, render, tagfile
 from scripts.buildid import build_id
 from scripts.discovery import PROJECT_CONTEXTS, discover, project_name
 from scripts.dockerfile import build_arg_values, references
@@ -43,6 +43,7 @@ from scripts.spec import (
     first_of_each_name,
     invalid_names,
     invalid_platforms,
+    invalid_tag_files,
     parse_explicit,
     platforms_of,
     sanitise_names,
@@ -208,6 +209,12 @@ def _check(settings: Settings, images: list[Image], messages: Messages) -> None:
             f"Invalid platform(s): {', '.join(unparsable)} "
             "(expected os/arch[/variant], such as linux/amd64)"
         )
+    bad_tag_files = invalid_tag_files(images) if settings.tag_files else []
+    if bad_tag_files:
+        raise ActionError(
+            "images entries whose 'tag_file' is not a string: "
+            f"{', '.join(bad_tag_files)}"
+        )
     # One builder, so one specifier: a list would parse as nothing and
     # silently fall back to the runner.
     builder = settings.build_platform
@@ -329,8 +336,14 @@ def resolve(settings: Settings, workspace: str = ".") -> Resolution:
         order = list(range(len(subset)))
         levels = [[k] for k in order]
 
+    ordered = [subset[k] for k in order]
+    if settings.tag_files:
+        # Only the images being built: an unselected image's tag file
+        # has no bearing on this run.
+        ordered = [tagfile.with_tag(workspace, root, image) for image in ordered]
+
     return Resolution(
-        images=[subset[k] for k in order],
+        images=ordered,
         source="explicit" if settings.images else "discovered",
         levels=[[names[k] for k in stage] for stage in levels],
         depends_on=[
