@@ -30,6 +30,7 @@ from scripts.graph import (
     topological_order,
     with_dependencies,
 )
+from scripts.paths import contain, within
 from scripts.platforms import resolve as resolve_platform
 from scripts.render import Resolution
 from scripts.settings import Settings
@@ -59,19 +60,6 @@ _NAMESPACE = re.compile(rf"{COMPONENT}(?:/{COMPONENT})*")
 MAX_REPOSITORY = 255
 
 
-def _within(workspace: str, path: str) -> bool:
-    """Whether ``path`` resolves, symbolic links included, inside it.
-
-    A path that cannot be resolved at all, such as one carrying a NUL
-    from an escaped JSON string, counts as outside.
-    """
-    try:
-        base = os.path.realpath(workspace)
-        return os.path.commonpath([base, os.path.realpath(path)]) == base
-    except (OSError, ValueError):
-        return False
-
-
 def _root(settings: Settings, workspace: str) -> str:
     if settings.image_namespace and not _NAMESPACE.fullmatch(settings.image_namespace):
         raise ActionError(
@@ -81,36 +69,13 @@ def _root(settings: Settings, workspace: str) -> str:
         )
     prefix = settings.path_prefix or "."
     root = os.path.join(workspace, prefix)
-    if os.path.isabs(prefix) or not _within(workspace, root):
+    if os.path.isabs(prefix) or not within(workspace, root):
         raise ActionError(
             f"path_prefix '{settings.path_prefix}' must be a path inside the workspace"
         )
     if not os.path.isdir(root):
         raise ActionError(f"path_prefix '{settings.path_prefix}' is not a directory")
     return root
-
-
-def _contain(workspace: str, root: str, images: list[Image]) -> None:
-    """Refuse contexts or Dockerfiles resolving outside the workspace.
-
-    The boundary is the workspace, not path_prefix: a context above the
-    Dockerfile's directory, such as ../shared, is ordinary Docker usage,
-    whereas a path out of the checkout would hand downstream builds and
-    the Dockerfile reader files the repository does not own.
-    """
-    escapes = [
-        f"{image['name']} ({field} '{path}')"
-        for image in images
-        for field, path in (
-            ("context", image["context"]),
-            ("dockerfile", dockerfile_of(image)),
-        )
-        if os.path.isabs(path) or not _within(workspace, os.path.join(root, path))
-    ]
-    if escapes:
-        raise ActionError(
-            f"Image paths must stay inside the workspace: {'; '.join(escapes)}"
-        )
 
 
 def _load(settings: Settings, root: str, messages: Messages) -> list[Image]:
@@ -345,7 +310,7 @@ def resolve(settings: Settings, workspace: str = ".") -> Resolution:
     root = _root(settings, workspace)
     images = _load(settings, root, messages)
     _check(settings, images, messages)
-    _contain(workspace, root, images)
+    contain(workspace, root, images)
 
     deps = (
         _dependency_graph(root, images, messages, settings)
