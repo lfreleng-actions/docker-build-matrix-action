@@ -86,7 +86,6 @@ class TagFilesTest(TreeTestCase):
         self.assertEqual(run.status, 0, run.stdout)
         self.assertEqual(matrix(run)[0]["tag"], "2.8.6")
 
-    @unittest.expectedFailure
     def test_simple_values_on_ignored_keys_pass(self) -> None:
         content = (
             "# comment\nowner:\nother: # intentionally unset\nname: ~\n"
