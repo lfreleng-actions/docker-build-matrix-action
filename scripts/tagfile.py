@@ -44,9 +44,10 @@ _INDICATORS = frozenset("-?:,[]{}#&*!|>%@`")
 def _line_value(raw: str) -> tuple[bool, str | None]:
     """Whether a value is a simple one-line scalar, and the string it holds.
 
-    The string is None for a null or empty value.
+    The string is None for a null or empty value. ``raw`` starts after
+    whitespace, so a leading ``#`` opens a comment and leaves it empty.
     """
-    if not raw:
+    if not raw or raw.startswith("#"):
         return True, None
     if raw[:1] in _INDICATORS and not (raw[:1] == "-" and raw[1:2] not in " \t"):
         return False, None
