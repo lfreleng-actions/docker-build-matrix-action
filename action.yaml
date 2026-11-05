@@ -241,9 +241,9 @@ runs:
         # sys.path. Under 'python3 -m', a repository carrying its own
         # scripts/discover.py would run in place of this action; see
         # entrypoint.py.
-        if ! python3 -I -c 'import sys; sys.exit(sys.version_info < (3, 10))' \
+        if ! python3 -I -c 'import sys; sys.exit(sys.version_info < (3, 11))' \
           > /dev/null 2>&1; then
-          echo "::error::python3 3.10 or later is required on the runner"
+          echo "::error::python3 3.11 or later is required on the runner"
           exit 1
         fi
         python3 -I "${GITHUB_ACTION_PATH}/entrypoint.py"
