@@ -137,6 +137,21 @@ same-repository images they build from, so the chain still resolves:
     allow_empty: 'true'         # no changed image is not an error
 ```
 
+### Building what a change touched
+
+`changed_files` takes the paths a change touched, as a JSON array
+relative to the repository root, and selects the images that read
+them, adding the images built from them and the images they build
+from ([rules](#change-scoped-selection)):
+
+```yaml
+- uses: lfreleng-actions/docker-build-matrix-action@<sha>  # vX.Y.Z
+  with:
+    # For example ["base/Dockerfile","scripts/build.sh"]
+    changed_files: ${{ steps.changes.outputs.files }}
+    allow_empty: 'true'         # a change no image reads is not an error
+```
+
 ### Replacing the inline step in a docker-workflows lane
 
 Inputs take the lanes' names, so the step's `env:` block maps across
@@ -165,27 +180,29 @@ one for one, and the outputs keep the job output names:
 
 <!-- markdownlint-disable MD013 -->
 
-| Name                   | Required | Default                 | Description                                                                                                                   |
-| ---------------------- | -------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `path_prefix`          | False    | `.`                     | Project root, relative to the workspace. Contexts and Dockerfiles are relative to it                                          |
-| `images`               | False    | `''`                    | Explicit JSON image list ([schema](#image-entries)); empty auto-discovers                                                     |
-| `image_namespace`      | False    | `''`                    | Namespace for the matrix `image` field, for example `onap`                                                                    |
-| `platforms`            | False    | `''`                    | Default platforms for matrix entries without their own                                                                        |
-| `build_platform`       | False    | `''`                    | The builder's platform, for BuildKit's `BUILD*` arguments; empty is the runner's. Set it for a remote builder                 |
-| `build_command`        | False    | `''`                    | The caller's image-producing command. Not run here: when set, finding no Dockerfile is not an error                           |
-| `build_command_images` | False    | `''`                    | Images that command produces; the action records them in the build id and nowhere else                                        |
-| `repository`           | False    | `github.repository`     | `owner/name`; names project-level images and feeds the build id                                                               |
-| `ref`                  | False    | `''`                    | The ref the calling job checked out, for the build id                                                                         |
-| `gerrit_refspec`       | False    | `''`                    | Gerrit change refspec, for the build id                                                                                       |
-| `search_depth`         | False    | `1`                     | Directory levels searched for per-image Dockerfiles (1 to 32)                                                                 |
-| `name_from`            | False    | `directory`             | Name discovered images by final `directory`, or by relative `path` joined with `-`                                            |
-| `exclude_paths`        | False    | `''`                    | Comma or newline separated directory globs that discovery skips, with their subtrees                                          |
-| `order`                | False    | `declared`              | `declared` keeps discovery or input order; `dependencies` builds same-repository bases first                                  |
-| `select`               | False    | `''`                    | Comma or space separated name globs choosing a subset                                                                         |
-| `select_dependencies`  | False    | `true`                  | With `select`, add the same-repository images the selection builds from                                                       |
-| `allow_empty`          | False    | `false`                 | Succeed with no images instead of failing                                                                                     |
-| `summary`              | False    | `true`                  | Write the image table to the step summary                                                                                     |
-| `tag_files`            | False    | `false`                 | Read each image's tag from its `container-tag.yaml`; see [per-image tags](#per-image-tags)                                    |
+| Name                   | Required | Default             | Description                                                                                                             |
+| ---------------------- | -------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `path_prefix`          | False    | `.`                 | Project root, relative to the workspace. Contexts and Dockerfiles are relative to it                                    |
+| `images`               | False    | `''`                | Explicit JSON image list ([schema](#image-entries)); empty auto-discovers                                               |
+| `image_namespace`      | False    | `''`                | Namespace for the matrix `image` field, for example `onap`                                                              |
+| `platforms`            | False    | `''`                | Default platforms for matrix entries without their own                                                                  |
+| `build_platform`       | False    | `''`                | The builder's platform, for BuildKit's `BUILD*` arguments; empty is the runner's. Set it for a remote builder           |
+| `build_command`        | False    | `''`                | The caller's image-producing command. Not run here: when set, finding no Dockerfile is not an error                     |
+| `build_command_images` | False    | `''`                | Images that command produces; the action records them in the build id and nowhere else                                  |
+| `repository`           | False    | `github.repository` | `owner/name`; names project-level images and feeds the build id                                                         |
+| `ref`                  | False    | `''`                | The ref the calling job checked out, for the build id                                                                   |
+| `gerrit_refspec`       | False    | `''`                | Gerrit change refspec, for the build id                                                                                 |
+| `search_depth`         | False    | `1`                 | Directory levels searched for per-image Dockerfiles (1 to 32)                                                           |
+| `name_from`            | False    | `directory`         | Name discovered images by final `directory`, or by relative `path` joined with `-`                                      |
+| `exclude_paths`        | False    | `''`                | Comma or newline separated directory globs that discovery skips, with their subtrees                                    |
+| `order`                | False    | `declared`          | `declared` keeps discovery or input order; `dependencies` builds same-repository bases first                            |
+| `select`               | False    | `''`                | Comma or space separated name globs choosing a subset                                                                   |
+| `select_dependencies`  | False    | `true`              | With `select` or `changed_files`, add the same-repository images the selection builds from                              |
+| `changed_files`        | False    | `''`                | JSON array of paths a change touched, from the repository root; see [change-scoped selection](#change-scoped-selection) |
+| `select_dependents`    | False    | `true`              | With `changed_files`, add the same-repository images built from the selection, transitively                             |
+| `allow_empty`          | False    | `false`             | Succeed with no images instead of failing, including when `select` or `changed_files` selects none                      |
+| `summary`              | False    | `true`              | Write the image table to the step summary                                                                               |
+| `tag_files`            | False    | `false`             | Read each image's tag from its `container-tag.yaml`; see [per-image tags](#per-image-tags)                              |
 
 <!-- markdownlint-enable MD013 -->
 
@@ -193,15 +210,16 @@ one for one, and the outputs keep the job output names:
 
 <!-- markdownlint-disable MD013 -->
 
-| Name           | Description                                                                                              |
-| -------------- | -------------------------------------------------------------------------------------------------------- |
-| `images_json`  | Ordered image list as compact JSON, in the input schema; the docker-workflows build loop contract        |
-| `image_count`  | Number of images                                                                                         |
-| `image_names`  | Space-separated names, in build order                                                                    |
-| `matrix`       | `{"include": [...]}` for `strategy.matrix`, one [entry](#matrix-entries) per image                       |
-| `build_levels` | JSON array of stages; images within a stage do not depend on one another                                 |
-| `build_id`     | Unique per invocation: 12 hex digits of configuration hash, `-`, 16 hex digits of nonce                  |
-| `source`       | `explicit` when the `images` input applied, else `discovered`                                            |
+| Name               | Description                                                                                                   |
+| ------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `images_json`      | Ordered image list as compact JSON, in the input schema, each with its input `paths`; the build loop contract |
+| `image_count`      | Number of images                                                                                              |
+| `image_names`      | Space-separated names, in build order                                                                         |
+| `matrix`           | `{"include": [...]}` for `strategy.matrix`, one [entry](#matrix-entries) per image                            |
+| `build_levels`     | JSON array of stages; images within a stage do not depend on one another                                      |
+| `build_id`         | Unique per invocation: 12 hex digits of configuration hash, `-`, 16 hex digits of nonce                       |
+| `source`           | `explicit` when the `images` input applied, else `discovered`                                                 |
+| `selection_reason` | `all` without `changed_files`; else `changed`, `shared` or `none`                                             |
 
 <!-- markdownlint-enable MD013 -->
 
@@ -213,15 +231,16 @@ The `images` input and the `images_json` output share one schema:
 
 <!-- markdownlint-disable MD013 -->
 
-| Key          | Type                        | Required | Meaning                                                                                                              |
-| ------------ | --------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------- |
-| `name`       | string                      | Yes      | Image name; lowercased, other characters become `-`                                                                  |
-| `context`    | string                      | Yes      | Build context, relative to `path_prefix`                                                                             |
-| `dockerfile` | string                      | No       | Dockerfile relative to `path_prefix`; default `<context>/Dockerfile`                                                 |
-| `target`     | string                      | No       | Build stage to stop at                                                                                               |
-| `build_args` | array of strings            | No       | `KEY=VALUE` build arguments                                                                                          |
-| `platforms`  | string, or array of strings | No       | Platforms for this image; the matrix joins an array with commas, and falls back to the `platforms` input when absent |
-| `tag_file`   | string                      | No       | With `tag_files`, the tag file relative to `path_prefix`; default `<context>/container-tag.yaml`                     |
+| Key          | Type                        | Required | Meaning                                                                                                                    |
+| ------------ | --------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `name`       | string                      | Yes      | Image name; lowercased, other characters become `-`                                                                        |
+| `context`    | string                      | Yes      | Build context, relative to `path_prefix`                                                                                   |
+| `dockerfile` | string                      | No       | Dockerfile relative to `path_prefix`; default `<context>/Dockerfile`                                                       |
+| `target`     | string                      | No       | Build stage to stop at                                                                                                     |
+| `build_args` | array of strings            | No       | `KEY=VALUE` build arguments                                                                                                |
+| `platforms`  | string, or array of strings | No       | Platforms for this image; the matrix joins an array with commas, and falls back to the `platforms` input when absent       |
+| `tag_file`   | string                      | No       | With `tag_files`, the tag file relative to `path_prefix`; default `<context>/container-tag.yaml`                           |
+| `paths`      | array of strings            | No       | Further directories or files the image reads, relative to `path_prefix`, for `changed_files`; always present in the output |
 
 <!-- markdownlint-enable MD013 -->
 
@@ -251,6 +270,7 @@ Each matrix entry carries the image entry's keys, normalised, plus:
 | `index`           | Position in build order                                                            |
 | `tag`             | With `tag_files`, the image's tag; empty when it has no tag file                   |
 | `tag_source`      | With `tag_files`, the tag file read, relative to `path_prefix`; else empty         |
+| `paths`           | Every input path the image reads, relative to `path_prefix`                        |
 
 <!-- markdownlint-enable MD013 -->
 
@@ -366,6 +386,91 @@ of continuations, and heredoc bodies stay hidden, including those that
 `ONBUILD` opens. As in `docker build`, `RUN << EOF` opens a heredoc,
 while a shell here-string (`<<<`) and the JSON form never do.
 
+### Change-scoped selection
+
+With `changed_files`, the action builds the images a change touched
+and leaves the rest. Each image reads these input paths, relative to
+`path_prefix`, and lists them in its `paths` key in `images_json` and
+the matrix, with or without `changed_files`:
+
+- its build context directory;
+- its Dockerfile, the entry's `dockerfile` or `<context>/Dockerfile`;
+- where that Dockerfile lies outside the context, its own ignore
+  file, `<dockerfile>.dockerignore`, which BuildKit reads in place of
+  the context's `.dockerignore`. It joins the list even when absent,
+  since adding one changes what the build sends. The test reads where
+  the ignore file and the context lead, so a symbolic link or a
+  `link/..` that takes the ignore file out of the context counts;
+- each local `--build-context name=path` in the entry's `build_flags`
+  (a string or a list of strings), and the directory of an
+  `oci-layout://path` source. A remote source (`docker-image://`, a
+  URL, a git reference, `target:`) adds nothing, nor does a path
+  outside the workspace, which no change can touch; a link inside the
+  workspace that leads there still matches. A `.git` suffix
+  marks a git source on a URL alone, so `../common.git` is local. An
+  absolute path inside the workspace becomes relative to where
+  `path_prefix` resolves, keeping any symbolic link it names;
+- each entry of its own `paths` list, a directory or file that must
+  resolve inside the workspace, as `context` must;
+- with `tag_files`, its declared `tag_file`, which sets the tag it
+  publishes. The default `<context>/container-tag.yaml` lies inside
+  the context already, so it joins the list as a symbolic link alone,
+  since a link may lead out of the context.
+
+When one of these runs through a symbolic link that resolves elsewhere
+inside the workspace, the resolved target joins the list too. A change
+to a link or to the target touches the image, and so does a change to
+an intermediate link, one inside the workspace that resolving the path
+follows. Intermediate links stay out of the list: fed back as `paths`,
+a link to a directory would read the whole directory. A replay finds
+them again from the written forms the list keeps. The path resolves as
+written, before any `..` collapses: with `link` pointing at
+`common/nested`, `link/..` reads `common`. Where collapsing a `..`
+would skip a link, pass through another, or lead somewhere else, the
+collapsed form names a directory or link the build never reads, so the
+list keeps the path with its `..` instead, such as `link/../templates`.
+The list omits a form
+that resolves outside the workspace, such as `link/../..` written as
+`..`, so `images_json` stays valid as `images` input.
+
+Matching follows each input path to where it leads and adds the links
+it passes through; the written forms are there for a replay. A file
+touches an image when it matches one of these, lies below one of
+them, or lies above one, as a link or a file replacing a directory on
+the way there would. Both sides start from the repository root: a
+context of `..` reads every file below the directory above
+`path_prefix`. A
+`path_prefix` that is a symbolic link matches through its target too,
+since git names a file where it lives; a written form that leads
+elsewhere, such as `link/..`, does not match. A change to any link that
+resolving `path_prefix` follows, itself or one inside another link's
+target, touches every image, since it moves every build root, and a
+notice names it. These links stay out of each image's `paths`, so
+`images_json` fed back as `images` selects as narrowly. Then:
+
+1. A changed file inside `path_prefix` that no image reads is a
+   shared change, such as a common script or a top-level build file,
+   and selects every image. A notice names each such file. List
+   the file or its directory in one image's `paths` to make it that
+   image's change alone.
+2. Otherwise the action selects the touched images, adds every image
+   built from them (`select_dependents`), and then the images those
+   build from (`select_dependencies`), so a base image change
+   rebuilds its children and a child still builds its bases.
+3. A change touching nothing, such as `[]` or files outside
+   `path_prefix` alone, selects no image. `allow_empty` decides
+   whether that succeeds with an empty set or fails.
+
+`selection_reason` reports which case applied. Every other output
+covers the selected images and no others.
+
+`changed_files` refuses anything but a JSON array of strings, and an
+empty, absolute or control-character path or one with a `..` segment.
+It cannot combine with `build_command`, which replaces discovery, nor,
+for now, with `select`: nobody has yet decided whether an explicit
+selection should intersect a change's or join it, so the action
+refuses rather than guess.
+
 ### Build id
 
 `build_id` names a run's artifacts. Artifact names must be unique per
@@ -387,7 +492,8 @@ verbatim from docker-workflows v0.6.2, where #92 converged the three
 copies. `tests/test_equivalence.py` runs it and this action side by
 side over the fifteen layouts #92 used, and further edge cases, for
 each lane configuration. It compares exit status, `images_json`,
-`image_count`, annotations and the build id configuration hash.
+`image_count`, annotations and the build id configuration hash,
+setting aside the `paths` key the action adds to each entry.
 `images_json` matches `jq -c` byte for byte, extra keys included:
 numbers keep their literal in `jq`'s canonical form (`1e-7` as
 `1E-7`, `1.50` as written, large integers exact), as `jq` 1.7 and

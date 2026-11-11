@@ -5,11 +5,13 @@
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from scripts import gha
+from scripts.changes import parse_changed_files
 from scripts.discovery import NAME_FROM_CHOICES, DiscoveryOptions, normalise_pattern
 from scripts.gha import ActionError
 from scripts.spec import ascii_lower
@@ -61,6 +63,8 @@ class Settings:
     order: str = "declared"
     select: tuple[str, ...] = ()
     select_dependencies: bool = True
+    changed_files: tuple[str, ...] | None = None
+    select_dependents: bool = True
     allow_empty: bool = False
     summary: bool = True
     tag_files: bool = False
@@ -97,6 +101,10 @@ class Settings:
             select_dependencies=gha.env_bool(
                 "INPUT_SELECT_DEPENDENCIES", "select_dependencies", True
             ),
+            changed_files=parse_changed_files(env("INPUT_CHANGED_FILES")),
+            select_dependents=gha.env_bool(
+                "INPUT_SELECT_DEPENDENTS", "select_dependents", True
+            ),
             allow_empty=gha.env_bool("INPUT_ALLOW_EMPTY", "allow_empty", False),
             summary=gha.env_bool("INPUT_SUMMARY", "summary", True),
             tag_files=gha.env_bool("INPUT_TAG_FILES", "tag_files", False),
@@ -105,8 +113,13 @@ class Settings:
     @property
     def reads_dockerfiles(self) -> bool:
         """Whether resolving needs the same-repository dependency graph."""
-        return self.order == "dependencies" or (
-            bool(self.select) and self.select_dependencies
+        return (
+            self.order == "dependencies"
+            or (bool(self.select) and self.select_dependencies)
+            or (
+                self.changed_files is not None
+                and (self.select_dependents or self.select_dependencies)
+            )
         )
 
     def ignored_with_explicit_images(self) -> list[str]:
@@ -158,6 +171,14 @@ class Settings:
                 defaults.select_dependencies,
             ),
             ("build_platform", self.build_platform, ""),
+            (
+                "changed_files",
+                ""
+                if self.changed_files is None
+                else json.dumps(list(self.changed_files)),
+                "",
+            ),
+            ("select_dependents", self.select_dependents, defaults.select_dependents),
             ("tag_files", self.tag_files, defaults.tag_files),
         ]
         fields.extend(

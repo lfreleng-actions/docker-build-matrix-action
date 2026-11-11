@@ -25,6 +25,7 @@ class Resolution:
     depends_on: list[list[str]]
     build_id: str
     analysed: bool = False
+    selection_reason: str = "all"
     messages: list[tuple[str, str]] = field(default_factory=list)
 
 
@@ -78,6 +79,7 @@ def outputs(settings: Settings, result: Resolution) -> dict[str, str]:
         "build_levels": compact(result.levels),
         "build_id": result.build_id,
         "source": result.source,
+        "selection_reason": result.selection_reason,
     }
 
 

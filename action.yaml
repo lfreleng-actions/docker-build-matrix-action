@@ -38,9 +38,10 @@ inputs:
       'target' (optional strings), 'build_args' (an optional list of
       KEY=VALUE strings) and 'platforms' (an optional string or list
       of strings, which the matrix joins with commas) and 'tag_file'
-      (an optional string, read under tag_files). Array order is
-      build order. Other keys pass through to the matrix output
-      unchanged.
+      (an optional string, read under tag_files) and 'paths' (an
+      optional list of further directories or files the image reads,
+      for changed_files). Array order is build order. Other keys pass
+      through to the matrix output unchanged.
     required: false
     default: ""
   image_namespace:
@@ -146,15 +147,34 @@ inputs:
     default: ""
   select_dependencies:
     description: >
-      With select, also build the same-repository images the selected
-      ones build from, so a partial build still resolves its chain.
+      With select or changed_files, also build the same-repository
+      images the selected ones build from, so a partial build still
+      resolves its chain.
+    required: false
+    default: "true"
+  changed_files:
+    description: >
+      JSON array of the paths a change touched, relative to the
+      repository root, as 'git diff --name-only' lists them. Selects
+      the images whose context, Dockerfile, local build contexts or
+      'paths' contain one; a changed file inside path_prefix that no
+      image reads selects every image. Empty (the default) turns
+      change scoping off; '[]' selects nothing. Cannot combine with
+      select or build_command.
+    required: false
+    default: ""
+  select_dependents:
+    description: >
+      With changed_files, also build every same-repository image that
+      builds from a selected one, transitively.
     required: false
     default: "true"
   allow_empty:
     description: >
       Succeed with an empty image set instead of failing when nothing
-      is found or select matches nothing. Guard downstream matrix jobs
-      on image_count, as GitHub rejects an empty matrix.
+      is found, or select or changed_files selects nothing. Guard
+      downstream matrix jobs on image_count, as GitHub rejects an
+      empty matrix.
     required: false
     default: "false"
   summary:
@@ -176,7 +196,9 @@ outputs:
   images_json:
     description: >
       The ordered image list as compact JSON, in the input schema: the
-      contract the docker-workflows build loops consume.
+      contract the docker-workflows build loops consume. Each entry's
+      'paths' lists every input path the image reads, relative to
+      path_prefix.
     value: ${{ steps.discover.outputs.images_json }}
   image_count:
     description: "Number of images to build"
@@ -204,6 +226,12 @@ outputs:
   source:
     description: "'explicit' when the images input was used, else 'discovered'"
     value: ${{ steps.discover.outputs.source }}
+  selection_reason:
+    description: >
+      Why these images: 'all' without changed_files, 'changed' for the
+      images the change touched, 'shared' when a file no image reads
+      selected every image, 'none' when nothing was selected.
+    value: ${{ steps.discover.outputs.selection_reason }}
 
 runs:
   using: "composite"
@@ -228,6 +256,8 @@ runs:
         INPUT_ORDER: ${{ inputs.order }}
         INPUT_SELECT: ${{ inputs.select }}
         INPUT_SELECT_DEPENDENCIES: ${{ inputs.select_dependencies }}
+        INPUT_CHANGED_FILES: ${{ inputs.changed_files }}
+        INPUT_SELECT_DEPENDENTS: ${{ inputs.select_dependents }}
         INPUT_ALLOW_EMPTY: ${{ inputs.allow_empty }}
         INPUT_SUMMARY: ${{ inputs.summary }}
         INPUT_TAG_FILES: ${{ inputs.tag_files }}

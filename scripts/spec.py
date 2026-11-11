@@ -154,6 +154,12 @@ def dockerfile_of(image: Image) -> str:
     return str(dockerfile)
 
 
+def declared_paths(image: Image) -> list[str]:
+    """The entry's own ``paths`` list, or nothing."""
+    value = image.get("paths")
+    return [str(item) for item in value] if isinstance(value, list) else []
+
+
 def invalid_tag_files(images: list[Image]) -> list[str]:
     """Names whose ``tag_file`` is set to something other than a string."""
     return [
