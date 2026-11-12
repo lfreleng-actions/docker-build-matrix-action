@@ -9,6 +9,10 @@ images_json, image_count and annotations. docker-workflows#29 names
 those cases as this action's acceptance tests. They are ported here
 and extended, and every case also compares the build id's
 configuration stem, which must match for an unchanged configuration.
+
+The action adds each image's resolved input ``paths`` to images_json,
+which the inline body never had; that key is set aside before the
+byte comparison, so everything else must still match exactly.
 """
 
 from __future__ import annotations
@@ -18,6 +22,7 @@ import pathlib
 import re
 import unittest
 
+from scripts import jqjson
 from tests.support import (
     DOCKERFILE,
     jq_keeps_number_literals,
@@ -117,6 +122,17 @@ CONFIGS: dict[str, dict[str, str]] = {
 _BUILD_ID = re.compile(r"[0-9a-f]{12}-[0-9a-f]{16}")
 
 
+def without_paths(images_json: str | None) -> str | None:
+    """images_json minus the action's added 'paths', in jq's bytes."""
+    if images_json is None:
+        return None
+    images = jqjson.loads(images_json)
+    for image in images:
+        if not isinstance(image.pop("paths"), list):
+            raise AssertionError(f"paths is not a list in {images_json}")
+    return jqjson.dumps(images)
+
+
 @unittest.skipUnless(legacy_available(), "reference needs bash, jq, sha256sum and od")
 class EquivalenceTest(unittest.TestCase):
     """The action matches the inline body across layouts and lanes."""
@@ -128,8 +144,16 @@ class EquivalenceTest(unittest.TestCase):
             action.status, legacy.status, f"status\n{legacy.stdout}\n{action.stdout}"
         )
         self.assertEqual(action.annotations, legacy.annotations)
-        for key in ("images_json", "image_count"):
-            self.assertEqual(action.outputs.get(key), legacy.outputs.get(key), key)
+        self.assertEqual(
+            without_paths(action.outputs.get("images_json")),
+            legacy.outputs.get("images_json"),
+            "images_json",
+        )
+        self.assertEqual(
+            action.outputs.get("image_count"),
+            legacy.outputs.get("image_count"),
+            "image_count",
+        )
         if legacy.status == 0:
             self.assertRegex(legacy.outputs["build_id"], _BUILD_ID)
             self.assertRegex(action.outputs["build_id"], _BUILD_ID)

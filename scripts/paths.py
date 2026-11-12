@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 
 from scripts.gha import ActionError
-from scripts.spec import Image, dockerfile_of
+from scripts.spec import Image, declared_paths, dockerfile_of
 
 
 def within(workspace: str, path: str) -> bool:
@@ -25,7 +25,7 @@ def within(workspace: str, path: str) -> bool:
 
 
 def contain(workspace: str, root: str, images: list[Image]) -> None:
-    """Refuse contexts or Dockerfiles resolving outside the workspace.
+    """Refuse contexts, Dockerfiles or paths resolving outside the workspace.
 
     The boundary is the workspace, not path_prefix: a context above the
     Dockerfile's directory, such as ../shared, is ordinary Docker usage,
@@ -38,6 +38,7 @@ def contain(workspace: str, root: str, images: list[Image]) -> None:
         for field, path in (
             ("context", image["context"]),
             ("dockerfile", dockerfile_of(image)),
+            *(("paths", entry) for entry in declared_paths(image)),
         )
         if os.path.isabs(path) or not within(workspace, os.path.join(root, path))
     ]

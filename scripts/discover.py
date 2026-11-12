@@ -19,7 +19,7 @@ import re
 import sys
 import traceback
 
-from scripts import gha, render, tagfile
+from scripts import changes, gha, linkpaths, render, tagfile
 from scripts.buildid import build_id
 from scripts.discovery import PROJECT_CONTEXTS, discover, project_name
 from scripts.dockerfile import build_arg_values, references
@@ -209,6 +209,12 @@ def _check(settings: Settings, images: list[Image], messages: Messages) -> None:
             f"Invalid platform(s): {', '.join(unparsable)} "
             "(expected os/arch[/variant], such as linux/amd64)"
         )
+    bad_paths = changes.invalid_paths(images)
+    if bad_paths:
+        raise ActionError(
+            "images entries whose 'paths' is not a list of strings: "
+            f"{', '.join(bad_paths)}"
+        )
     bad_tag_files = invalid_tag_files(images) if settings.tag_files else []
     if bad_tag_files:
         raise ActionError(
@@ -277,11 +283,17 @@ def _dependency_graph(
 
 
 def _select(
-    settings: Settings, images: list[Image], deps: Graph | None, messages: Messages
-) -> list[int]:
-    """Indices of the selected images (and their bases), in order."""
+    settings: Settings,
+    images: list[Image],
+    deps: Graph | None,
+    messages: Messages,
+    scope: changes.Scope,
+) -> tuple[list[int], str]:
+    """Indices of the selected images (and their bases), and why."""
+    if settings.changed_files is not None:
+        return changes.select_changed(settings, images, deps, messages, scope)
     if not settings.select or not images:
-        return list(range(len(images)))
+        return list(range(len(images))), "all"
     names = [image["name"] for image in images]
     chosen = {
         i
@@ -300,7 +312,7 @@ def _select(
         if not settings.allow_empty:
             raise ActionError(detail)
         messages.append(("notice", f"{detail}; allow_empty permits an empty result"))
-    return sorted(chosen)
+    return sorted(chosen), "all"
 
 
 def _restrict(deps: Graph | None, indices: list[int]) -> Graph | None:
@@ -314,17 +326,34 @@ def _restrict(deps: Graph | None, indices: list[int]) -> Graph | None:
 def resolve(settings: Settings, workspace: str = ".") -> Resolution:
     """Compute the ordered image set; raises ActionError on bad input."""
     messages: Messages = []
+    changes.refuse_conflicts(settings)
     root = _root(settings, workspace)
     images = _load(settings, root, messages)
     _check(settings, images, messages)
     contain(workspace, root, images)
+    targets = [
+        changes.input_targets(image, workspace, root, settings.tag_files)
+        for image in images
+    ]
+    images = [
+        {
+            **image,
+            "paths": changes.input_paths(image, workspace, root, settings.tag_files),
+        }
+        for image in images
+    ]
 
     deps = (
         _dependency_graph(root, images, messages, settings)
         if images and settings.reads_dockerfiles
         else None
     )
-    indices = _select(settings, images, deps, messages)
+    scope = changes.Scope(
+        roots=linkpaths.prefixes(settings.path_prefix, workspace, root),
+        links=linkpaths.prefix_links(settings.path_prefix, workspace),
+        targets=targets,
+    )
+    indices, reason = _select(settings, images, deps, messages, scope)
     subset = [images[i] for i in indices]
     sub_deps = _restrict(deps, indices)
     names = [image["name"] for image in subset]
@@ -352,6 +381,7 @@ def resolve(settings: Settings, workspace: str = ".") -> Resolution:
         ],
         build_id=build_id(settings.id_fields()),
         analysed=sub_deps is not None,
+        selection_reason=reason,
         messages=messages,
     )
 

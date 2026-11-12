@@ -67,6 +67,7 @@ class OutputContractTest(TreeTestCase):
                 "build_levels",
                 "build_id",
                 "source",
+                "selection_reason",
             },
         )
         self.assertEqual(run.outputs["image_count"], "3")

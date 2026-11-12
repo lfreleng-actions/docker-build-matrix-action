@@ -118,7 +118,7 @@ jobs:
           # Validate outputs
           set -euo pipefail
           # yamllint disable-line rule:line-length
-          expected='[{"name":"test-docker-project","dockerfile":"docker/Dockerfile","context":"docker"}]'
+          expected='[{"name":"test-docker-project","dockerfile":"docker/Dockerfile","context":"docker","paths":["docker","docker/Dockerfile"]}]'
           [ "${IMAGES_JSON}" = "${expected}" ] ||
             { echo "::error::images_json: ${IMAGES_JSON}"; exit 1; }
           [ "${IMAGE_COUNT}" = "1" ] && [ "${SOURCE}" = "discovered" ]
@@ -195,6 +195,22 @@ jobs:
           path_prefix: test-docker-monorepo
           select: chain-child
 
+      # changed_files are relative to the repository root, which here
+      # is the workspace holding the fixture under its path_prefix.
+      - name: "Select by a leaf image's change"
+        id: changed_leaf
+        uses: $/
+        with:
+          path_prefix: test-docker-monorepo
+          changed_files: '["test-docker-monorepo/util-echo/Dockerfile"]'
+
+      - name: "Select by a base image's change"
+        id: changed_base
+        uses: $/
+        with:
+          path_prefix: test-docker-monorepo
+          changed_files: '["test-docker-monorepo/base-alpine/Dockerfile"]'
+
       - name: "Validate outputs"
         shell: bash
         env:
@@ -202,6 +218,9 @@ jobs:
           ORDERED_NAMES: ${{ steps.ordered.outputs.image_names }}
           ORDERED_LEVELS: ${{ steps.ordered.outputs.build_levels }}
           SELECTED_NAMES: ${{ steps.selected.outputs.image_names }}
+          LEAF_NAMES: ${{ steps.changed_leaf.outputs.image_names }}
+          LEAF_REASON: ${{ steps.changed_leaf.outputs.selection_reason }}
+          BASE_NAMES: ${{ steps.changed_base.outputs.image_names }}
         run: |
           # Validate outputs
           set -euo pipefail
@@ -216,6 +235,9 @@ jobs:
           check "build levels" "${ORDERED_LEVELS}" \
             '[["util-echo","base-alpine"],["chain-child"]]'
           check "selection" "${SELECTED_NAMES}" "base-alpine chain-child"
+          check "leaf change" "${LEAF_NAMES}" "util-echo"
+          check "leaf change reason" "${LEAF_REASON}" "changed"
+          check "base change" "${BASE_NAMES}" "base-alpine chain-child"
           echo "Monorepo outputs validated ✅"
 
       - name: "Build images in the resolved order"

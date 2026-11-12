@@ -187,3 +187,19 @@ def with_dependencies(selected: set[int], deps: Sequence[Sequence[int]]) -> set[
                 closure.add(parent)
                 stack.append(parent)
     return closure
+
+
+def with_dependents(selected: set[int], deps: Sequence[Sequence[int]]) -> set[int]:
+    """Extend a selection with every sibling transitively built from it."""
+    children: list[list[int]] = [[] for _ in deps]
+    for child, parents in enumerate(deps):
+        for parent in parents:
+            children[parent].append(child)
+    closure = set(selected)
+    stack = list(selected)
+    while stack:
+        for child in children[stack.pop()]:
+            if child not in closure:
+                closure.add(child)
+                stack.append(child)
+    return closure
