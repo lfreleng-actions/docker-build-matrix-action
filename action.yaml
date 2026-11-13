@@ -236,10 +236,22 @@ outputs:
 runs:
   using: "composite"
   steps:
+    # The action resolves its own interpreter rather than taking
+    # whatever python3 the caller's PATH offers. update-environment
+    # is off so the caller's later steps keep their own PATH.
+    - name: "Set up Python"
+      id: python
+      # yamllint disable-line rule:line-length
+      uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
+      with:
+        python-version: "3.12"
+        update-environment: false
+
     - name: "Discover images"
       id: discover
       shell: bash
       env:
+        PYTHON: ${{ steps.python.outputs.python-path }}
         INPUT_PATH_PREFIX: ${{ inputs.path_prefix }}
         INPUT_IMAGES: ${{ inputs.images }}
         INPUT_IMAGE_NAMESPACE: ${{ inputs.image_namespace }}
@@ -263,17 +275,12 @@ runs:
         INPUT_TAG_FILES: ${{ inputs.tag_files }}
       run: |
         # Discover images
-        # Standard library only, so no setup-python step or package
-        # install: GitHub-hosted runners ship a suitable python3.
+        # Standard library only, so no package install. PYTHON is the
+        # interpreter the "Set up Python" step resolved.
         #
         # -I (isolated mode) keeps the working directory, which holds
         # the checked-out repository, and PYTHON* variables off
         # sys.path. Under 'python3 -m', a repository carrying its own
         # scripts/discover.py would run in place of this action; see
         # entrypoint.py.
-        if ! python3 -I -c 'import sys; sys.exit(sys.version_info < (3, 11))' \
-          > /dev/null 2>&1; then
-          echo "::error::python3 3.11 or later is required on the runner"
-          exit 1
-        fi
-        python3 -I "${GITHUB_ACTION_PATH}/entrypoint.py"
+        "$PYTHON" -I "${GITHUB_ACTION_PATH}/entrypoint.py"
