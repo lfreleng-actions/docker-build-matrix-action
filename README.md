@@ -531,12 +531,13 @@ Where the inline step misbehaved, the action differs by design:
 
 ## Notes
 
-- Needs `python3` 3.11 or later on the runner, as current GitHub-hosted
-  images provide (`ubuntu-24.04` ships 3.12), and fails with an
-  annotation otherwise. The system `python3` on `ubuntu-22.04` is 3.10,
-  so a job there fails fast unless an earlier step installs a newer
-  one, for example with `actions/setup-python`. The action needs
-  nothing beyond the standard library, so it installs nothing.
+- Sets up its own Python 3.12 with a commit-pinned
+  `actions/setup-python` and runs the entry point with that
+  interpreter, so the `python3` on the caller's `PATH` plays no part.
+  The step leaves the job's environment unchanged
+  (`update-environment: false`), so later steps keep the caller's
+  Python. The action needs nothing beyond the standard library, so it
+  installs no packages.
 - The walk sorts by Unicode code point on every runner, where the
   inline shell glob followed the runner's locale. The two agree on
   GitHub-hosted runners, which use `C.UTF-8`.
