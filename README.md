@@ -7,7 +7,7 @@
 
 <!-- prettier-ignore-start -->
 <!-- markdownlint-disable-next-line MD013 -->
-[![Linux Foundation](https://img.shields.io/badge/Linux-Foundation-blue)](https://linuxfoundation.org/) [![Source Code](https://img.shields.io/badge/GitHub-100000?logo=github&logoColor=white&color=blue)](https://github.com/lfreleng-actions/docker-build-matrix-action) [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![pre-commit.ci status badge]][pre-commit.ci results page] [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/lfreleng-actions/docker-build-matrix-action/badge)](https://scorecard.dev/viewer/?uri=github.com/lfreleng-actions/docker-build-matrix-action)
+[![Linux Foundation](https://img.shields.io/badge/Linux-Foundation-blue)](https://linuxfoundation.org/) [![Source Code](https://img.shields.io/badge/GitHub-100000?logo=github&logoColor=white&color=blue)](https://github.com/lfreleng-actions/docker-build-matrix-action) [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/lfreleng-actions/docker-build-matrix-action/badge)](https://scorecard.dev/viewer/?uri=github.com/lfreleng-actions/docker-build-matrix-action)
 <!-- prettier-ignore-end -->
 
 Works out which container images a repository builds, and in what
@@ -560,5 +560,3 @@ or later, as on `ubuntu-latest`.
 [docker-workflows]: https://github.com/lfreleng-actions/docker-workflows
 [docker-workflows#29]: https://github.com/lfreleng-actions/docker-workflows/issues/29
 [docker-workflows#92]: https://github.com/lfreleng-actions/docker-workflows/pull/92
-[pre-commit.ci results page]: https://results.pre-commit.ci/latest/github/lfreleng-actions/docker-build-matrix-action/main
-[pre-commit.ci status badge]: https://results.pre-commit.ci/badge/github/lfreleng-actions/docker-build-matrix-action/main.svg
